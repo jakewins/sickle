@@ -21,31 +21,42 @@ func main() {
 
 	reader := bufio.NewReader(conn)
 	for {
-		// Header: 8 bytes, a hex string denoting the length of the packet
-		chunk, err := readChunk(reader, 8)
-		if err != nil {
-			break // TODO
-		}
-		packetLen, err := strconv.ParseInt(chunk.String(), 16, 32)
-		if err != nil {
-			break // TODO
-		}
-		chunk, err = readChunk(reader, int(packetLen))
-		if err != nil {
-			break // TODO
-		}
-		packet := &msg.Packet{}
-		err = proto.Unmarshal(chunk.Bytes(), packet)
+		packet, nil := readGazeboPacket(reader)
 		if err != nil {
 			break // TODO
 		}
 
-		fmt.Println(packet.Type)
+		fmt.Println(packet.GetType())
 		break
 	}
 }
 
-func readChunk(reader *bufio.Reader, chunkSize int) (chunk bytes.Buffer, err error) {
+func readGazeboPacket(reader *bufio.Reader) (packet *msg.Packet, err error) {
+	// Header: 8 byte hex string denoting length of payload
+	chunk, err := readChunk(reader, 8)
+	if err != nil {
+		return nil, err
+	}
+	packetLen, err := strconv.ParseInt(chunk.String(), 16, 32)
+	if err != nil {
+		return nil, err
+	}
+
+	// Packet body
+	chunk, err = readChunk(reader, int(packetLen))
+	if err != nil {
+		return nil, err
+	}
+	packet = &msg.Packet{}
+	err = proto.Unmarshal(chunk.Bytes(), packet)
+	if err != nil {
+		return nil, err
+	}
+
+	return packet, nil
+}
+
+func readChunk(reader *bufio.Reader, chunkSize int) (chunk *bytes.Buffer, err error) {
 	var buf [1024]byte
 	var out bytes.Buffer
 	var remaining = chunkSize
@@ -54,13 +65,13 @@ func readChunk(reader *bufio.Reader, chunkSize int) (chunk bytes.Buffer, err err
 		read, err := reader.Read(buf[:min(len(buf), remaining)])
 		remaining -= read
 		if err != nil {
-			return out, err
+			return nil, err
 		}
 		if read > 0 {
 			out.Write(buf[:read])
 		}
 	}
-	return out, nil
+	return &out, nil
 }
 
 func min(x, y int) int {
