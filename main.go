@@ -8,6 +8,7 @@ import (
 	"os"
 	"strconv"
 	"math"
+	"gazebo/v7.1/gazebo_msgs"
 )
 
 func main() {
